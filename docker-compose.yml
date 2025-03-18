@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  currency-rates-app:
+    build: .
+    container_name: currency_rates_app
+    depends_on:
+      currency-rates-db:
+        condition: service_healthy
+      currency-rates-migrations:
+        condition: service_completed_successfully  # Wait for migrations to finish
+      currency-rates-external:
+        condition: service_started
+    environment:
+        - SPRING_R2DBC_URL=r2dbc:postgresql://currency-rates-db:5432/currency_db
+        - SPRING_R2DBC_USERNAME=postgres
+        - SPRING_R2DBC_PASSWORD=postgres
+        - CURRENCY_RATES_EXTERNAL_URL=http://currency-rates-external:8080
+    ports:
+      - target: 8080
+        published: 8080
+
+  currency-rates-db:
+    image: postgres
+    container_name: currency_rates_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=currency_db
+    ports:
+      - target: 5432
+        published: 5433
+    volumes:
+      - ./data:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  currency-rates-migrations:
+    image: flyway/flyway:11.4.0
+    command: -url=jdbc:postgresql://currency-rates-db:5432/currency_db -user=postgres -password=postgres -connectRetries=60 migrate
+    volumes:
+      - ./src/main/resources/db/migration:/flyway/sql
+    depends_on:
+      currency-rates-db:
+        condition: service_healthy
+
+  currency-rates-external:
+    image: docker.io/illenko/currencies-mocks:latest
+    container_name: currency-rates-external
+    ports:
+      - target: 8080
+        published: 8081
