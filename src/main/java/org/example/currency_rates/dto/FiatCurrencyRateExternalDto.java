@@ -1,6 +1,5 @@
 package org.example.currency_rates.dto;
 
-import org.example.currency_rates.dto.CurrencyRateDto;
 
 import java.math.BigDecimal;
 
